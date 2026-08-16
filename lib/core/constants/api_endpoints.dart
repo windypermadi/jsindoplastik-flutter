@@ -22,7 +22,12 @@ class ApiEndpoints {
       '$baseUrl/category/get-jenis?parent=$parentId';
 
   // {{url}}type?page=1
+  static String get getTypesUrl => '$baseUrl/type';
   static String getTypes({int page = 1}) => '$baseUrl/type?page=$page';
+
+  // Add Category & Type endpoints
+  static String get addCategory => '$baseUrl/category/add';
+  static String get addType => '$baseUrl/type';
 
   // {{url}}product/get-all-product?page=1&pageSize=20&search=&kategori=1&jenis=2&tipe=3
   static String getAllProductsFiltered({
@@ -54,7 +59,9 @@ class ApiEndpoints {
   }
 
   // Standard Products & Categories
+  static String getProductDetail(String id) => '$baseUrl/product/get-product?kode=$id';
   static String get createProduct => '$baseUrl/product/new';
+  static String get updateProduct => '$baseUrl/product/update';
   static String get products => '$baseUrl/products';
   static String get categories => '$baseUrl/categories';
   static String get manageProducts => '$baseUrl/products/manage';

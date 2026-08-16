@@ -247,6 +247,71 @@ class ProductProvider with ChangeNotifier {
     notifyListeners();
   }
 
+  Future<ApiResponse<dynamic>> addCategoryParent(String name) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final payload = <String, dynamic>{
+      'id_parent': null,
+      'nama_kategori': name.trim(),
+      'is_active': true,
+      'has_parent': false,
+    };
+
+    final response = await ApiService.post(ApiEndpoints.addCategory, payload);
+    if (response.isSuccess) {
+      await fetchParentCategories(refresh: true);
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return response;
+  }
+
+  Future<ApiResponse<dynamic>> addCategoryJenis({
+    required dynamic parentId,
+    required String name,
+  }) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final parsedParentId = int.tryParse(parentId.toString()) ?? parentId;
+
+    final payload = <String, dynamic>{
+      'id_parent': parsedParentId,
+      'nama_kategori': name.trim(),
+      'is_active': true,
+      'has_parent': true,
+    };
+
+    final response = await ApiService.post(ApiEndpoints.addCategory, payload);
+    if (response.isSuccess) {
+      await fetchJenisCategories(parentId.toString());
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return response;
+  }
+
+  Future<ApiResponse<dynamic>> addType(String name) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final payload = <String, dynamic>{
+      'nama': name.trim(),
+    };
+
+    final response = await ApiService.post(ApiEndpoints.addType, payload);
+    if (response.isSuccess) {
+      await fetchTypes();
+    } else {
+      _isLoading = false;
+      notifyListeners();
+    }
+    return response;
+  }
+
   Future<bool> createNewProduct(Map<String, dynamic> bodyData) async {
     _isLoading = true;
     notifyListeners();
@@ -259,6 +324,40 @@ class ProductProvider with ChangeNotifier {
     _isLoading = false;
     notifyListeners();
     return false;
+  }
+
+  Future<bool> updateProductApi(Map<String, dynamic> bodyData) async {
+    _isLoading = true;
+    notifyListeners();
+
+    if (bodyData.containsKey('id_kategori') && bodyData['id_kategori'] != null) {
+      bodyData['id_kategori'] = int.tryParse(bodyData['id_kategori'].toString()) ?? bodyData['id_kategori'];
+    }
+
+    var response = await ApiService.post(ApiEndpoints.updateProduct, bodyData);
+    if (!response.isSuccess && response.statusCode == 405) {
+      response = await ApiService.put(ApiEndpoints.updateProduct, bodyData);
+    }
+
+    if (response.isSuccess) {
+      await fetchProductsFiltered();
+      return true;
+    }
+    _isLoading = false;
+    notifyListeners();
+    return false;
+  }
+
+  Future<ProductModel?> fetchProductDetail(String productId) async {
+    final response = await ApiService.get(ApiEndpoints.getProductDetail(productId));
+    if (response.isSuccess && response.data != null) {
+      final dynamic raw = response.data;
+      if (raw is Map) {
+        final Map<String, dynamic> contentMap = Map<String, dynamic>.from(raw['content'] is Map ? raw['content'] : raw);
+        return ProductModel.fromJson(contentMap);
+      }
+    }
+    return null;
   }
 
   Future<bool> addProduct(ProductModel product) async {

@@ -45,13 +45,43 @@ class _KelolaProdukViewState extends State<KelolaProdukView> {
     }
   }
 
-  void _openAddProductModal() {
+  void _openAddProductModal({ProductModel? productToEdit}) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => const _AddProductFormModal(),
+      builder: (ctx) => _AddProductFormModal(productToEdit: productToEdit),
     );
+  }
+
+  Future<void> _onEditProductPressed(ProductModel item) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => const Center(
+        child: Card(
+          child: Padding(
+            padding: EdgeInsets.all(20.0),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                CircularProgressIndicator(),
+                SizedBox(height: 12),
+                Text('Mengambil detail produk...'),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final productProv = Provider.of<ProductProvider>(context, listen: false);
+    final detailedProduct = await productProv.fetchProductDetail(item.id);
+
+    if (mounted) {
+      Navigator.pop(context);
+      _openAddProductModal(productToEdit: detailedProduct ?? item);
+    }
   }
 
   void _confirmDelete(ProductModel item) {
@@ -128,9 +158,32 @@ class _KelolaProdukViewState extends State<KelolaProdukView> {
             const SizedBox(height: 12),
 
             // 1. Level 1: Kategori (Parent)
-            const Text(
-              '1. Kategori Produk',
-              style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '1. Kategori Produk',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                InkWell(
+                  onTap: () => showAddCategoryDialog(context),
+                  borderRadius: BorderRadius.circular(6),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 14, color: AppColors.primary),
+                        SizedBox(width: 4),
+                        Text(
+                          '+ Kategori',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 4),
             SizedBox(
@@ -195,108 +248,150 @@ class _KelolaProdukViewState extends State<KelolaProdukView> {
             const SizedBox(height: 8),
 
             // 2. Level 2: Jenis Sub-Kategori
-            if (productProv.categoryJenis.isNotEmpty) ...[
-              const Text(
-                '2. Jenis Sub-Kategori',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 38,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: productProv.categoryJenis.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      final isSelected = productProv.selectedJenis == null;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6.0),
-                        child: FilterChip(
-                          label: const Text('Semua Jenis'),
-                          selected: isSelected,
-                          selectedColor: AppColors.accent,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textPrimary,
-                            fontSize: 11,
-                          ),
-                          onSelected: (_) => productProv.selectJenisCategory(null),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '2. Jenis Sub-Kategori',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                InkWell(
+                  onTap: () => showAddJenisDialog(context, initialParent: productProv.selectedParent),
+                  borderRadius: BorderRadius.circular(6),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 14, color: AppColors.accent),
+                        SizedBox(width: 4),
+                        Text(
+                          '+ Jenis',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accent),
                         ),
-                      );
-                    }
-
-                    final j = productProv.categoryJenis[index - 1];
-                    final isSelected = productProv.selectedJenis?.id == j.id;
-
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 38,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: productProv.categoryJenis.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final isSelected = productProv.selectedJenis == null;
                     return Padding(
                       padding: const EdgeInsets.only(right: 6.0),
                       child: FilterChip(
-                        label: Text(j.name),
+                        label: const Text('Semua Jenis'),
                         selected: isSelected,
                         selectedColor: AppColors.accent,
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : AppColors.textPrimary,
                           fontSize: 11,
                         ),
-                        onSelected: (_) => productProv.selectJenisCategory(j),
+                        onSelected: (_) => productProv.selectJenisCategory(null),
                       ),
                     );
-                  },
-                ),
+                  }
+
+                  final j = productProv.categoryJenis[index - 1];
+                  final isSelected = productProv.selectedJenis?.id == j.id;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6.0),
+                    child: FilterChip(
+                      label: Text(j.name),
+                      selected: isSelected,
+                      selectedColor: AppColors.accent,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontSize: 11,
+                      ),
+                      onSelected: (_) => productProv.selectJenisCategory(j),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 8),
-            ],
+            ),
+            const SizedBox(height: 8),
 
             // 3. Level 3: Tipe Produk
-            if (productProv.types.isNotEmpty) ...[
-              const Text(
-                '3. Tipe Produk',
-                style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
-              ),
-              const SizedBox(height: 4),
-              SizedBox(
-                height: 36,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: productProv.types.length + 1,
-                  itemBuilder: (context, index) {
-                    if (index == 0) {
-                      final isSelected = productProv.selectedType == null;
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 6.0),
-                        child: ChoiceChip(
-                          label: const Text('Semua Tipe'),
-                          selected: isSelected,
-                          selectedColor: AppColors.primaryDark,
-                          labelStyle: TextStyle(
-                            color: isSelected ? Colors.white : AppColors.textPrimary,
-                            fontSize: 11,
-                          ),
-                          onSelected: (_) => productProv.selectType(null),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  '3. Tipe Produk',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary),
+                ),
+                InkWell(
+                  onTap: () => showAddTypeDialog(context),
+                  borderRadius: BorderRadius.circular(6),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.add_circle_outline, size: 14, color: AppColors.primaryDark),
+                        SizedBox(width: 4),
+                        Text(
+                          '+ Tipe',
+                          style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryDark),
                         ),
-                      );
-                    }
-
-                    final t = productProv.types[index - 1];
-                    final isSelected = productProv.selectedType?.id == t.id;
-
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            SizedBox(
+              height: 36,
+              child: ListView.builder(
+                scrollDirection: Axis.horizontal,
+                itemCount: productProv.types.length + 1,
+                itemBuilder: (context, index) {
+                  if (index == 0) {
+                    final isSelected = productProv.selectedType == null;
                     return Padding(
                       padding: const EdgeInsets.only(right: 6.0),
                       child: ChoiceChip(
-                        label: Text(t.name),
+                        label: const Text('Semua Tipe'),
                         selected: isSelected,
                         selectedColor: AppColors.primaryDark,
                         labelStyle: TextStyle(
                           color: isSelected ? Colors.white : AppColors.textPrimary,
                           fontSize: 11,
                         ),
-                        onSelected: (_) => productProv.selectType(t),
+                        onSelected: (_) => productProv.selectType(null),
                       ),
                     );
-                  },
-                ),
+                  }
+
+                  final t = productProv.types[index - 1];
+                  final isSelected = productProv.selectedType?.id == t.id;
+
+                  return Padding(
+                    padding: const EdgeInsets.only(right: 6.0),
+                    child: ChoiceChip(
+                      label: Text(t.name),
+                      selected: isSelected,
+                      selectedColor: AppColors.primaryDark,
+                      labelStyle: TextStyle(
+                        color: isSelected ? Colors.white : AppColors.textPrimary,
+                        fontSize: 11,
+                      ),
+                      onSelected: (_) => productProv.selectType(t),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 10),
-            ],
+            ),
+            const SizedBox(height: 10),
 
             // 4. Product List
             Expanded(
@@ -358,11 +453,17 @@ class _KelolaProdukViewState extends State<KelolaProdukView> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(Icons.delete_outline, color: AppColors.danger),
-                                      onPressed: () => _confirmDelete(p),
-                                    ),
+                                     const SizedBox(width: 4),
+                                     IconButton(
+                                       icon: const Icon(Icons.edit_outlined, color: AppColors.primary),
+                                       tooltip: 'Edit Produk',
+                                       onPressed: () => _onEditProductPressed(p),
+                                     ),
+                                     IconButton(
+                                       icon: const Icon(Icons.delete_outline, color: AppColors.danger),
+                                       tooltip: 'Hapus Produk',
+                                       onPressed: () => _confirmDelete(p),
+                                     ),
                                   ],
                                 ),
                               ),
@@ -378,7 +479,8 @@ class _KelolaProdukViewState extends State<KelolaProdukView> {
 }
 
 class _AddProductFormModal extends StatefulWidget {
-  const _AddProductFormModal();
+  final ProductModel? productToEdit;
+  const _AddProductFormModal({this.productToEdit});
 
   @override
   State<_AddProductFormModal> createState() => _AddProductFormModalState();
@@ -419,10 +521,65 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+
+    if (widget.productToEdit != null) {
+      final p = widget.productToEdit!;
+      _skuController.text = p.code;
+      _shortNameController.text = p.name;
+      _longNameController.text = p.longName ?? p.name;
+      _merekController.text = p.merek ?? '';
+      _satuanController.text = p.unit;
+      _stokAwalController.text = p.stock.toString();
+      _batasStokController.text = (p.batasStok ?? 10).toString();
+
+      _hargaModalController.text = p.buyPrice > 0 ? (p.buyPrice % 1 == 0 ? p.buyPrice.toInt().toString() : p.buyPrice.toString()) : '';
+      _hargaRetailController.text = p.sellPrice > 0 ? (p.sellPrice % 1 == 0 ? p.sellPrice.toInt().toString() : p.sellPrice.toString()) : '';
+      _hargaResellerController.text = (p.hargaReseller ?? 0) > 0 ? (p.hargaReseller! % 1 == 0 ? p.hargaReseller!.toInt().toString() : p.hargaReseller!.toString()) : '';
+
+      _grosir1Controller.text = (p.grosir1 ?? 0) > 0 ? (p.grosir1! % 1 == 0 ? p.grosir1!.toInt().toString() : p.grosir1!.toString()) : '';
+      _grosir2Controller.text = (p.grosir2 ?? 0) > 0 ? (p.grosir2! % 1 == 0 ? p.grosir2!.toInt().toString() : p.grosir2!.toString()) : '';
+      _grosir3Controller.text = (p.grosir3 ?? 0) > 0 ? (p.grosir3! % 1 == 0 ? p.grosir3!.toInt().toString() : p.grosir3!.toString()) : '';
+
+      _minBelanja1Controller.text = (p.minBelanja1 ?? 0).toString();
+      _minBelanja2Controller.text = (p.minBelanja2 ?? 0).toString();
+      _minBelanja3Controller.text = (p.minBelanja3 ?? 0).toString();
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
       final productProv = Provider.of<ProductProvider>(context, listen: false);
       if (productProv.categoryParents.isEmpty || productProv.types.isEmpty) {
-        productProv.initCatalogData();
+        await productProv.initCatalogData();
+      }
+
+      if (widget.productToEdit != null) {
+        final p = widget.productToEdit!;
+        if (p.idKategori != null) {
+          final foundParent = productProv.categoryParents.where((cat) => cat.id == p.idKategori).firstOrNull;
+          if (foundParent != null) {
+            _onParentCategoryChanged(foundParent);
+          } else {
+            for (final parent in productProv.categoryParents) {
+              await productProv.fetchJenisCategories(parent.id);
+              final foundJenis = productProv.categoryJenis.where((j) => j.id == p.idKategori).firstOrNull;
+              if (foundJenis != null) {
+                setState(() {
+                  _selectedParent = parent;
+                  _availableJenis = productProv.categoryJenis;
+                  _selectedJenis = foundJenis;
+                });
+                break;
+              }
+            }
+          }
+        }
+        if (p.idType != null) {
+          final foundType = productProv.types.where((t) => t.id == p.idType).firstOrNull;
+          if (foundType != null) {
+            setState(() {
+              _selectedType = foundType;
+            });
+          }
+        }
       }
     });
   }
@@ -471,38 +628,45 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
 
   Future<void> _submitForm() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_selectedJenis == null) {
+    if (_selectedJenis == null && _selectedParent == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Pilih Jenis Kategori terlebih dahulu')),
+        const SnackBar(content: Text('Pilih Kategori terlebih dahulu')),
       );
       return;
     }
 
     setState(() => _isSubmitting = true);
 
+    final categoryId = _selectedJenis?.id ?? _selectedParent?.id ?? '';
+    final parsedCategoryId = int.tryParse(categoryId) ?? categoryId;
+    final isEditing = widget.productToEdit != null;
+
     final payload = <String, dynamic>{
-      'sku': _skuController.text.trim(),
+      if (isEditing) 'id': widget.productToEdit!.id,
       'short_name': _shortNameController.text.trim(),
       'long_name': _longNameController.text.trim(),
-      'id_kategori': _selectedJenis!.id, // id_kategori disi dari ID Jenis Kategori
-      'id_type': _selectedType?.id,
+      'id_kategori': parsedCategoryId,
       'merek': _merekController.text.trim().isNotEmpty ? _merekController.text.trim() : null,
       'satuan': _satuanController.text.trim(),
-      'stok_awal': int.tryParse(_stokAwalController.text) ?? 0,
       'batas_stok': int.tryParse(_batasStokController.text) ?? 10,
-      'harga_modal': double.tryParse(_hargaModalController.text) ?? 0,
       'harga_retail': double.tryParse(_hargaRetailController.text) ?? 0,
-      'harga_reseller': double.tryParse(_hargaResellerController.text) ?? 0,
       'grosir_1': double.tryParse(_grosir1Controller.text) ?? 0,
       'grosir_2': double.tryParse(_grosir2Controller.text) ?? 0,
       'grosir_3': double.tryParse(_grosir3Controller.text) ?? 0,
       'min_belanja_1': int.tryParse(_minBelanja1Controller.text) ?? 0,
       'min_belanja_2': int.tryParse(_minBelanja2Controller.text) ?? 0,
       'min_belanja_3': int.tryParse(_minBelanja3Controller.text) ?? 0,
+      'harga_reseller': double.tryParse(_hargaResellerController.text) ?? 0,
+      'harga_modal': double.tryParse(_hargaModalController.text) ?? 0,
+      if (!isEditing) 'sku': _skuController.text.trim(),
+      if (!isEditing) 'stok_awal': int.tryParse(_stokAwalController.text) ?? 0,
+      if (!isEditing && _selectedType != null) 'id_type': _selectedType!.id,
     };
 
     final productProv = Provider.of<ProductProvider>(context, listen: false);
-    final success = await productProv.createNewProduct(payload);
+    final success = isEditing
+        ? await productProv.updateProductApi(payload)
+        : await productProv.createNewProduct(payload);
 
     setState(() => _isSubmitting = false);
 
@@ -510,11 +674,11 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
       if (success) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Produk berhasil ditambahkan ke API!')),
+          SnackBar(content: Text(isEditing ? 'Produk berhasil diperbarui!' : 'Produk berhasil ditambahkan ke API!')),
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Gagal menambahkan produk ke API server')),
+          SnackBar(content: Text(isEditing ? 'Gagal memperbarui produk di API server' : 'Gagal menambahkan produk ke API server')),
         );
       }
     }
@@ -538,9 +702,9 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Tambah Produk Baru',
-                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                Text(
+                  widget.productToEdit != null ? 'Edit Produk' : 'Tambah Produk Baru',
+                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
                 ),
                 IconButton(
                   icon: const Icon(Icons.close),
@@ -561,7 +725,26 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Step 1: Dropdown Kategori
-                    const Text('1. Pilih Kategori Utama *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('1. Pilih Kategori Utama *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        InkWell(
+                          onTap: () => showAddCategoryDialog(context),
+                          borderRadius: BorderRadius.circular(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 14, color: AppColors.primary),
+                                SizedBox(width: 2),
+                                Text('+ Kategori Baru', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primary)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<CategoryParentModel>(
                       value: _selectedParent,
@@ -581,7 +764,26 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
                     const SizedBox(height: 14),
 
                     // Step 2: Dropdown Jenis (sub kategori)
-                    const Text('2. Pilih Jenis Kategori *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('2. Pilih Jenis Kategori *', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        InkWell(
+                          onTap: () => showAddJenisDialog(context, initialParent: _selectedParent),
+                          borderRadius: BorderRadius.circular(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 14, color: AppColors.accent),
+                                SizedBox(width: 2),
+                                Text('+ Jenis Baru', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.accent)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     _isLoadingJenis
                         ? const Center(child: Padding(padding: EdgeInsets.all(8), child: CircularProgressIndicator()))
@@ -603,7 +805,26 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
                     const SizedBox(height: 14),
 
                     // Step 3: Dropdown Tipe (optional)
-                    const Text('3. Pilih Tipe Produk (Opsional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text('3. Pilih Tipe Produk (Opsional)', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                        InkWell(
+                          onTap: () => showAddTypeDialog(context),
+                          borderRadius: BorderRadius.circular(4),
+                          child: const Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                            child: Row(
+                              children: [
+                                Icon(Icons.add, size: 14, color: AppColors.primaryDark),
+                                SizedBox(width: 2),
+                                Text('+ Tipe Baru', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppColors.primaryDark)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
                     const SizedBox(height: 6),
                     DropdownButtonFormField<TypeModel>(
                       value: _selectedType,
@@ -817,9 +1038,9 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
                         onPressed: _isSubmitting ? null : _submitForm,
                         child: _isSubmitting
                             ? const CircularProgressIndicator(color: Colors.white)
-                            : const Text(
-                                'Simpan Produk Baru',
-                                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
+                            : Text(
+                                widget.productToEdit != null ? 'Simpan Perubahan' : 'Simpan Produk Baru',
+                                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                               ),
                       ),
                     ),
@@ -833,4 +1054,284 @@ class _AddProductFormModalState extends State<_AddProductFormModal> {
       ),
     );
   }
+}
+
+// Dialog for Adding Parent Category
+void showAddCategoryDialog(BuildContext context) {
+  final nameController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  showDialog(
+    context: context,
+    builder: (dialogCtx) {
+      bool isSubmitting = false;
+
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.category_rounded, color: AppColors.primary),
+                SizedBox(width: 8),
+                Text('Tambah Kategori Baru', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Kategori Utama (id_parent: null, has_parent: false)',
+                    style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Kategori *',
+                      hintText: 'Contoh: Sterofom',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama kategori wajib diisi' : null,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setState(() => isSubmitting = true);
+
+                        final productProv = Provider.of<ProductProvider>(context, listen: false);
+                        final res = await productProv.addCategoryParent(nameController.text.trim());
+
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res.isSuccess ? 'Kategori "${nameController.text}" berhasil ditambahkan' : res.message),
+                              backgroundColor: res.isSuccess ? Colors.green : AppColors.danger,
+                            ),
+                          );
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+// Dialog for Adding Jenis (Sub-Category)
+void showAddJenisDialog(BuildContext context, {CategoryParentModel? initialParent}) {
+  final nameController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+  final productProv = Provider.of<ProductProvider>(context, listen: false);
+
+  CategoryParentModel? selectedParent = initialParent ?? productProv.selectedParent ?? (productProv.categoryParents.isNotEmpty ? productProv.categoryParents.first : null);
+
+  showDialog(
+    context: context,
+    builder: (dialogCtx) {
+      bool isSubmitting = false;
+
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.subdirectory_arrow_right_rounded, color: AppColors.accent),
+                SizedBox(width: 8),
+                Text('Tambah Jenis Sub-Kategori', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Pilih Kategori Utama (Parent) *', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: AppColors.textSecondary)),
+                  const SizedBox(height: 6),
+                  DropdownButtonFormField<CategoryParentModel>(
+                    value: selectedParent,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    ),
+                    items: productProv.categoryParents.map((cat) {
+                      return DropdownMenuItem(
+                        value: cat,
+                        child: Text(cat.name, style: const TextStyle(fontSize: 13)),
+                      );
+                    }).toList(),
+                    onChanged: (val) {
+                      setState(() => selectedParent = val);
+                    },
+                    validator: (v) => v == null ? 'Pilih Kategori Utama' : null,
+                  ),
+                  const SizedBox(height: 14),
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Jenis Sub-Kategori *',
+                      hintText: 'Contoh: Sterofom Polos',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama jenis wajib diisi' : null,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.accent,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        if (selectedParent == null) return;
+
+                        setState(() => isSubmitting = true);
+
+                        final res = await productProv.addCategoryJenis(
+                          parentId: selectedParent!.id,
+                          name: nameController.text.trim(),
+                        );
+
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res.isSuccess ? 'Jenis Sub-Kategori "${nameController.text}" berhasil ditambahkan' : res.message),
+                              backgroundColor: res.isSuccess ? Colors.green : AppColors.danger,
+                            ),
+                          );
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
+}
+
+// Dialog for Adding Type
+void showAddTypeDialog(BuildContext context) {
+  final nameController = TextEditingController();
+  final formKey = GlobalKey<FormState>();
+
+  showDialog(
+    context: context,
+    builder: (dialogCtx) {
+      bool isSubmitting = false;
+
+      return StatefulBuilder(
+        builder: (ctx, setState) {
+          return AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Row(
+              children: [
+                Icon(Icons.style_rounded, color: AppColors.primaryDark),
+                SizedBox(width: 8),
+                Text('Tambah Tipe Baru', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ],
+            ),
+            content: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('Tipe Produk / Varian Baru', style: TextStyle(fontSize: 11, color: AppColors.textSecondary)),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: nameController,
+                    autofocus: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Tipe *',
+                      hintText: 'Contoh: Tipe Baru',
+                      border: OutlineInputBorder(),
+                    ),
+                    validator: (v) => (v == null || v.trim().isEmpty) ? 'Nama tipe wajib diisi' : null,
+                  ),
+                ],
+              ),
+            ),
+            actions: [
+              TextButton(
+                onPressed: isSubmitting ? null : () => Navigator.pop(dialogCtx),
+                child: const Text('Batal'),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primaryDark,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+                ),
+                onPressed: isSubmitting
+                    ? null
+                    : () async {
+                        if (!formKey.currentState!.validate()) return;
+                        setState(() => isSubmitting = true);
+
+                        final productProv = Provider.of<ProductProvider>(context, listen: false);
+                        final res = await productProv.addType(nameController.text.trim());
+
+                        if (dialogCtx.mounted) Navigator.pop(dialogCtx);
+
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(res.isSuccess ? 'Tipe "${nameController.text}" berhasil ditambahkan' : res.message),
+                              backgroundColor: res.isSuccess ? Colors.green : AppColors.danger,
+                            ),
+                          );
+                        }
+                      },
+                child: isSubmitting
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Text('Simpan', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              ),
+            ],
+          );
+        },
+      );
+    },
+  );
 }
