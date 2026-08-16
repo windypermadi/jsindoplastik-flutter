@@ -7,7 +7,7 @@ import '../core/constants/api_endpoints.dart';
 class AuthProvider with ChangeNotifier {
   UserModel? _currentUser;
   bool _isLoading = false;
-  bool _isMockMode = true;
+  bool _isMockMode = false;
   String? _errorMessage;
 
   UserModel? get currentUser => _currentUser;
@@ -45,8 +45,17 @@ class AuthProvider with ChangeNotifier {
     try {
       final response = await ApiService.get(ApiEndpoints.getUserInfo);
       if (response.isSuccess && response.data != null) {
-        _currentUser = UserModel.fromJson(response.data);
-        notifyListeners();
+        final dynamic resData = response.data;
+        final userData = (resData is Map && resData['content'] != null)
+            ? resData['content']
+            : (resData is Map && resData['data'] != null)
+                ? resData['data']
+                : resData;
+
+        if (userData is Map<String, dynamic>) {
+          _currentUser = UserModel.fromJson(userData);
+          notifyListeners();
+        }
       }
     } catch (e) {
       debugPrint('Error fetching user info: $e');
@@ -98,30 +107,46 @@ class AuthProvider with ChangeNotifier {
         });
 
         if (response.isSuccess && response.data != null) {
-          final data = response.data;
-          
-          String? token;
-          if (data is Map<String, dynamic>) {
-            token = data['token'] ?? data['access_token'] ?? data['data']?['token'];
+          final dynamic resData = response.data;
+          Map<String, dynamic> dataMap = {};
+          if (resData is Map<String, dynamic>) {
+            if (resData['content'] is Map<String, dynamic>) {
+              dataMap = resData['content'];
+            } else if (resData['data'] is Map<String, dynamic>) {
+              dataMap = resData['data'];
+            } else {
+              dataMap = resData;
+            }
           }
 
-          final userData = (data is Map<String, dynamic> && data.containsKey('user')) 
-              ? data['user'] 
-              : data;
+          String? token = dataMap['token']?.toString() ??
+              dataMap['access_token']?.toString() ??
+              (resData is Map ? resData['token']?.toString() : null);
 
-          _currentUser = UserModel.fromJson(userData is Map<String, dynamic> ? userData : {
-            'id': 'e56a74fe-c476-4ce8-8bca-c3cd297ee207',
-            'name': 'Ashlynn Donin',
-            'phone': phone,
-            'role': password.contains('owner') ? 'owner' : 'sales',
-          });
+          UserRole role = UserRole.sales;
+          if (phone.contains('891') || password.toLowerCase().contains('owner')) {
+            role = UserRole.owner;
+          }
 
-          await StorageService.saveSession(
-            token: token ?? 'bearer_token_sample',
-            user: _currentUser!,
-          );
+          final userData = (dataMap['user'] is Map<String, dynamic>) ? dataMap['user'] : null;
 
-          // Fetch full user info after login
+          _currentUser = userData != null
+              ? UserModel.fromJson(userData)
+              : UserModel(
+                  id: '1',
+                  name: role == UserRole.owner ? 'Owner POS' : 'Sales POS',
+                  phone: phone,
+                  role: role,
+                );
+
+          if (token != null && token.isNotEmpty) {
+            await StorageService.saveSession(
+              token: token,
+              user: _currentUser!,
+            );
+          }
+
+          // Fetch full profile user info with Bearer token
           await fetchUserInfo();
 
           _isLoading = false;

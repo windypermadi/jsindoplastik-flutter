@@ -42,7 +42,7 @@ class ApiService {
         return ApiResponse(
           isSuccess: true,
           message: body['message'] ?? 'Berhasil',
-          data: body['data'] ?? body,
+          data: body['data'] ?? body['content'] ?? body,
           statusCode: response.statusCode,
         );
       } else {
@@ -81,7 +81,7 @@ class ApiService {
         return ApiResponse(
           isSuccess: true,
           message: body['message'] ?? 'Berhasil disimpan',
-          data: body['data'] ?? body,
+          data: body['data'] ?? body['content'] ?? body,
           statusCode: response.statusCode,
         );
       } else {
@@ -120,7 +120,7 @@ class ApiService {
         return ApiResponse(
           isSuccess: true,
           message: body['message'] ?? 'Berhasil diperbarui',
-          data: body['data'] ?? body,
+          data: body['data'] ?? body['content'] ?? body,
           statusCode: response.statusCode,
         );
       } else {
@@ -152,7 +152,7 @@ class ApiService {
         return ApiResponse(
           isSuccess: true,
           message: body['message'] ?? 'Berhasil dihapus',
-          data: body['data'] ?? body,
+          data: body['data'] ?? body['content'] ?? body,
           statusCode: response.statusCode,
         );
       } else {

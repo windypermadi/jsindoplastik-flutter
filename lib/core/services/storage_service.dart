@@ -80,6 +80,6 @@ class StorageService {
 
   static Future<bool> isMockMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(keyMockMode) ?? true; // default to true for instant demo
+    return prefs.getBool(keyMockMode) ?? false; // default to false to use real API
   }
 }

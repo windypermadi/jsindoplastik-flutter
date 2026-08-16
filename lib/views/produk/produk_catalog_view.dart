@@ -282,10 +282,22 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
                                     color: AppColors.primaryLight,
                                     borderRadius: BorderRadius.circular(10),
                                   ),
-                                  child: const Icon(
-                                    Icons.inventory_2_outlined,
-                                    color: AppColors.primary,
-                                  ),
+                                  child: (p.imageUrl != null && p.imageUrl!.startsWith('http'))
+                                      ? ClipRRect(
+                                          borderRadius: BorderRadius.circular(10),
+                                          child: Image.network(
+                                            p.imageUrl!,
+                                            fit: BoxFit.cover,
+                                            errorBuilder: (_, __, ___) => const Icon(
+                                              Icons.inventory_2_outlined,
+                                              color: AppColors.primary,
+                                            ),
+                                          ),
+                                        )
+                                      : const Icon(
+                                          Icons.inventory_2_outlined,
+                                          color: AppColors.primary,
+                                        ),
                                 ),
                                 title: Text(
                                   p.name,
@@ -295,7 +307,9 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
                                   ),
                                 ),
                                 subtitle: Text(
-                                  'SKU: ${p.code} • ${p.category}',
+                                  p.longName != null && p.longName!.isNotEmpty
+                                      ? '${p.longName}'
+                                      : 'SKU: ${p.code}',
                                   style: const TextStyle(fontSize: 12, color: AppColors.textSecondary),
                                 ),
                                 trailing: Column(

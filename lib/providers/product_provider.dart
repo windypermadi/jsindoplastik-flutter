@@ -21,7 +21,7 @@ class ProductProvider with ChangeNotifier {
 
   // Pagination for category parents
   int _parentsPage = 1;
-  final int _parentsPageSize = 20;
+  final int _parentsPageSize = 50;
   bool _hasMoreParents = true;
 
   List<ProductModel> get products => _filteredProducts();
@@ -45,6 +45,9 @@ class ProductProvider with ChangeNotifier {
 
   Future<void> initCatalogData() async {
     await fetchParentCategories(refresh: true);
+    if (_categoryParents.isNotEmpty) {
+      await fetchJenisCategories(_categoryParents.first.id);
+    }
     await fetchTypes();
     await fetchProductsFiltered();
   }
@@ -62,7 +65,40 @@ class ProductProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  // 1. Fetch Parent Categories with Infinite Scroll (page & pageSize=20)
+  List _extractRawList(dynamic rawData) {
+    if (rawData == null) return [];
+    if (rawData is List) return rawData;
+    if (rawData is Map) {
+      final content = rawData['content'];
+      if (content is Map && content['data'] is List) {
+        return content['data'];
+      }
+      if (content is List) {
+        return content;
+      }
+      if (rawData['data'] is List) {
+        return rawData['data'];
+      }
+      if (rawData['products'] is List) {
+        return rawData['products'];
+      }
+      if (rawData['categories'] is List) {
+        return rawData['categories'];
+      }
+      if (rawData['types'] is List) {
+        return rawData['types'];
+      }
+      if (rawData['jenis'] is List) {
+        return rawData['jenis'];
+      }
+      if (rawData['result'] is List) {
+        return rawData['result'];
+      }
+    }
+    return [];
+  }
+
+  // 1. Fetch Parent Categories with Infinite Scroll (page & pageSize=10)
   Future<void> fetchParentCategories({bool refresh = false}) async {
     if (refresh) {
       _parentsPage = 1;
@@ -76,18 +112,6 @@ class ProductProvider with ChangeNotifier {
       notifyListeners();
     }
 
-    final isMock = await StorageService.isMockMode();
-    if (isMock) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      if (refresh) {
-        _categoryParents = _getMockCategoryParents();
-      }
-      _isLoading = false;
-      _isLoadingMoreParents = false;
-      notifyListeners();
-      return;
-    }
-
     final endpoint = ApiEndpoints.getCategoryParents(
       page: _parentsPage,
       pageSize: _parentsPageSize,
@@ -95,25 +119,37 @@ class ProductProvider with ChangeNotifier {
 
     final response = await ApiService.get(endpoint);
     if (response.isSuccess && response.data != null) {
-      final List list = response.data is List
-          ? response.data
-          : (response.data['content'] ?? response.data['data'] ?? []);
+      final List list = _extractRawList(response.data);
 
-      final parsed = list.map((e) => CategoryParentModel.fromJson(e)).toList();
+      final allParsed = list
+          .map((e) => CategoryParentModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .toList();
 
-      if (parsed.length < _parentsPageSize) {
+      final parentsOnly = allParsed
+          .where((cat) => cat.isActive && (cat.tipe == null || cat.tipe!.toLowerCase() == 'kategori'))
+          .toList();
+
+      final jenisOnly = list
+          .map((e) => CategoryJenisModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .where((j) => j.isActive && j.tipe != null && j.tipe!.toLowerCase() == 'jenis')
+          .toList();
+
+      if (list.length < _parentsPageSize) {
         _hasMoreParents = false;
       }
 
       if (refresh) {
-        _categoryParents = parsed;
+        _categoryParents = parentsOnly;
+        if (_categoryJenis.isEmpty && jenisOnly.isNotEmpty) {
+          _categoryJenis = jenisOnly;
+        }
       } else {
-        _categoryParents.addAll(parsed);
+        _categoryParents.addAll(parentsOnly);
       }
 
       _parentsPage++;
     } else if (refresh) {
-      _categoryParents = _getMockCategoryParents();
+      _categoryParents = [];
     }
 
     _isLoading = false;
@@ -137,27 +173,17 @@ class ProductProvider with ChangeNotifier {
 
   // 2. Fetch Jenis Categories for selected Parent ({{url}}category/get-jenis?parent=1)
   Future<void> fetchJenisCategories(String parentId) async {
-    final isMock = await StorageService.isMockMode();
-    if (isMock) {
-      await Future.delayed(const Duration(milliseconds: 200));
-      _categoryJenis = [
-        CategoryJenisModel(id: '26', parentId: parentId, name: 'Kantong HD Bening'),
-        CategoryJenisModel(id: '27', parentId: parentId, name: 'Kantong HD Hitam'),
-        CategoryJenisModel(id: '28', parentId: parentId, name: 'Thinwall Square'),
-        CategoryJenisModel(id: '29', parentId: parentId, name: 'Cup Minuman Oval'),
-      ];
-      notifyListeners();
-      return;
-    }
-
     final response = await ApiService.get(ApiEndpoints.getCategoryJenis(parentId));
     if (response.isSuccess && response.data != null) {
-      final List list = response.data is List
-          ? response.data
-          : (response.data['content'] ?? response.data['data'] ?? []);
-      _categoryJenis = list.map((e) => CategoryJenisModel.fromJson(e)).toList();
-    } else {
-      _categoryJenis = [];
+      final List list = _extractRawList(response.data);
+      final parsed = list
+          .map((e) => CategoryJenisModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .where((j) => j.id.isNotEmpty && j.name.isNotEmpty)
+          .toList();
+
+      if (parsed.isNotEmpty) {
+        _categoryJenis = parsed;
+      }
     }
     notifyListeners();
   }
@@ -173,23 +199,13 @@ class ProductProvider with ChangeNotifier {
 
   // 3. Fetch Types ({{url}}type?page=1)
   Future<void> fetchTypes() async {
-    final isMock = await StorageService.isMockMode();
-    if (isMock) {
-      _types = [
-        TypeModel(id: '16', name: 'Tipe Super 24'),
-        TypeModel(id: '17', name: 'Tipe Losspack 15'),
-        TypeModel(id: '18', name: 'Tipe Premium 500ml'),
-      ];
-      notifyListeners();
-      return;
-    }
-
     final response = await ApiService.get(ApiEndpoints.getTypes(page: 1));
     if (response.isSuccess && response.data != null) {
-      final List list = response.data is List
-          ? response.data
-          : (response.data['content'] ?? response.data['data'] ?? []);
-      _types = list.map((e) => TypeModel.fromJson(e)).toList();
+      final List list = _extractRawList(response.data);
+      _types = list
+          .map((e) => TypeModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .where((t) => t.id.isNotEmpty && t.name.isNotEmpty)
+          .toList();
     } else {
       _types = [];
     }
@@ -205,21 +221,15 @@ class ProductProvider with ChangeNotifier {
     await fetchProductsFiltered();
   }
 
-  // 4. Fetch Products Filtered ({{url}}product/get-all-product?kategori=24&jenis=26&tipe=16)
-  Future<void> fetchProductsFiltered() async {
+  // 4. Fetch Products Filtered ({{url}}product/get-all-product?page=1&pageSize=20&search=&kategori=1&jenis=2&tipe=3)
+  Future<void> fetchProductsFiltered({int page = 1, int pageSize = 20}) async {
     _isLoading = true;
     notifyListeners();
 
-    final isMock = await StorageService.isMockMode();
-    if (isMock) {
-      await Future.delayed(const Duration(milliseconds: 300));
-      _products = _getMockProducts();
-      _isLoading = false;
-      notifyListeners();
-      return;
-    }
-
     final endpoint = ApiEndpoints.getAllProductsFiltered(
+      page: page,
+      pageSize: pageSize,
+      search: _searchQuery.isNotEmpty ? _searchQuery : null,
       kategori: _selectedParent?.id,
       jenis: _selectedJenis?.id,
       tipe: _selectedType?.id,
@@ -227,16 +237,28 @@ class ProductProvider with ChangeNotifier {
 
     final response = await ApiService.get(endpoint);
     if (response.isSuccess && response.data != null) {
-      final List list = response.data is List
-          ? response.data
-          : (response.data['content'] ?? response.data['products'] ?? response.data['data'] ?? []);
-      _products = list.map((e) => ProductModel.fromJson(e)).toList();
+      final List list = _extractRawList(response.data);
+      _products = list.map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {}))).toList();
     } else {
-      _products = _getMockProducts();
+      _products = [];
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<bool> createNewProduct(Map<String, dynamic> bodyData) async {
+    _isLoading = true;
+    notifyListeners();
+
+    final response = await ApiService.post(ApiEndpoints.createProduct, bodyData);
+    if (response.isSuccess) {
+      await fetchProductsFiltered();
+      return true;
+    }
+    _isLoading = false;
+    notifyListeners();
+    return false;
   }
 
   Future<bool> addProduct(ProductModel product) async {
