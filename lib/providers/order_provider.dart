@@ -1,13 +1,21 @@
 import 'package:flutter/foundation.dart';
 import '../models/order_model.dart';
+import '../models/saved_transaction_model.dart';
 import '../core/services/api_service.dart';
 import '../core/services/storage_service.dart';
 import '../core/constants/api_endpoints.dart';
 
 class OrderProvider with ChangeNotifier {
   List<OrderModel> _orders = [];
+  List<SavedTransactionModel> _savedTransactions = [];
+
   String _searchQuery = '';
   bool _isLoading = false;
+  String? _errorMessage;
+
+  int _currentPage = 1;
+  int _lastPage = 1;
+  int _totalSaved = 0;
 
   List<OrderModel> get orders {
     if (_searchQuery.isEmpty) return _orders;
@@ -17,11 +25,25 @@ class OrderProvider with ChangeNotifier {
     }).toList();
   }
 
+  List<SavedTransactionModel> get savedTransactions {
+    if (_searchQuery.isEmpty) return _savedTransactions;
+    return _savedTransactions.where((t) {
+      final q = _searchQuery.toLowerCase();
+      return t.cartId.toLowerCase().contains(q) ||
+          t.customer.name.toLowerCase().contains(q) ||
+          t.user.name.toLowerCase().contains(q);
+    }).toList();
+  }
+
   String get searchQuery => _searchQuery;
   bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+  int get currentPage => _currentPage;
+  int get lastPage => _lastPage;
+  int get totalSaved => _totalSaved;
 
   OrderProvider() {
-    fetchOrders();
+    fetchSavedTransactions();
   }
 
   void setSearchQuery(String query) {
@@ -29,93 +51,182 @@ class OrderProvider with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> fetchOrders() async {
+  Future<void> fetchSavedTransactions({int page = 1}) async {
     _isLoading = true;
+    _errorMessage = null;
     notifyListeners();
 
     final isMock = await StorageService.isMockMode();
     if (isMock) {
       await Future.delayed(const Duration(milliseconds: 300));
-      _orders = _getMockOrders();
+      _savedTransactions = _getMockSavedTransactions();
       _isLoading = false;
       notifyListeners();
       return;
     }
 
-    final response = await ApiService.get(ApiEndpoints.orders);
+    final url = ApiEndpoints.getTransactionSavedUrl(page: page);
+    final response = await ApiService.get(url);
+
     if (response.isSuccess && response.data != null) {
-      final List list = response.data is List ? response.data : (response.data['orders'] ?? []);
-      _orders = list.map((e) => OrderModel.fromJson(e)).toList();
+      final dynamic resData = response.data;
+      Map<String, dynamic> contentMap = {};
+      if (resData is Map) {
+        if (resData['content'] is Map) {
+          contentMap = Map<String, dynamic>.from(resData['content'] as Map);
+        } else {
+          contentMap = Map<String, dynamic>.from(resData);
+        }
+      }
+
+      final List dataList = contentMap['data'] as List? ?? [];
+      _currentPage = contentMap['current_page'] ?? 1;
+      _lastPage = contentMap['last_page'] ?? 1;
+      _totalSaved = contentMap['total'] ?? dataList.length;
+
+      _savedTransactions = dataList
+          .map((e) => SavedTransactionModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .toList();
     } else {
-      _orders = _getMockOrders();
+      _errorMessage = response.message;
+      _savedTransactions = _getMockSavedTransactions();
     }
+
     _isLoading = false;
     notifyListeners();
   }
 
-  Future<bool> createOrder(OrderModel order) async {
+  Future<SavedTransactionDetailModel?> fetchSavedTransactionDetail(String cartId) async {
+    final isMock = await StorageService.isMockMode();
+    if (isMock) {
+      return SavedTransactionDetailModel(
+        salesId: 'e56a74fe',
+        salesName: 'Mrs. Loma Zieme',
+        customerName: 'Retail',
+        customerType: 'Retail',
+        date: '2026-08-20 22:23:43',
+        items: [
+          SavedTransactionDetailItemModel(
+            id: '0819df64',
+            name: 'SEDOTAN MM',
+            longName: 'PIPET PUTIH TEKUK PREMIUM',
+            qty: 1,
+            price: 18000,
+            subtotal: 18000,
+            parentCategory: 'Alat Makan',
+            childCategory: 'Pipet',
+            typeName: '-',
+          ),
+        ],
+        discStatus: false,
+        discount: '0',
+        beforeDisc: 18000,
+        afterDisc: 18000,
+      );
+    }
+
+    final url = ApiEndpoints.getTransactionSavedDetailUrl(cartId);
+    final response = await ApiService.get(url);
+
+    if (response.isSuccess && response.data != null) {
+      final dynamic resData = response.data;
+      Map<String, dynamic> contentMap = {};
+      if (resData is Map) {
+        if (resData['content'] is Map) {
+          contentMap = Map<String, dynamic>.from(resData['content'] as Map);
+        } else {
+          contentMap = Map<String, dynamic>.from(resData);
+        }
+      }
+
+      return SavedTransactionDetailModel.fromJson(contentMap);
+    }
+    return null;
+  }
+
+  Future<void> fetchOrders() async {
+    fetchSavedTransactions();
+  }
+
+  Future<ApiResponse> processCheckoutApi({
+    required String cartId,
+    required String transactionType,
+    required String paymentType,
+    String? acquirer,
+    String? notes,
+    String? dueDate,
+    double? downPayment,
+    required double paymentAmount,
+  }) async {
     _isLoading = true;
     notifyListeners();
 
     final isMock = await StorageService.isMockMode();
     if (isMock) {
       await Future.delayed(const Duration(milliseconds: 400));
-      _orders.insert(0, order);
       _isLoading = false;
       notifyListeners();
-      return true;
+      return ApiResponse(isSuccess: true, message: 'Checkout mock berhasil', data: {'message': 'Checkout mock berhasil'});
     }
 
-    final response = await ApiService.post(ApiEndpoints.checkout, order.toJson());
-    if (response.isSuccess) {
-      _orders.insert(0, order);
-      _isLoading = false;
-      notifyListeners();
-      return true;
-    } else {
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
+    final payload = <String, dynamic>{
+      'cart_id': cartId,
+      'transaction_type': transactionType,
+      'payment_type': paymentType,
+      'acquirer': acquirer,
+      'notes': notes,
+      'due_date': dueDate,
+      'down_payment': downPayment,
+      'payment_amount': paymentAmount,
+    };
+
+    final response = await ApiService.post(ApiEndpoints.checkout, payload);
+    _isLoading = false;
+    notifyListeners();
+    return response;
   }
 
-  List<OrderModel> _getMockOrders() {
+  List<SavedTransactionModel> _getMockSavedTransactions() {
     return [
-      OrderModel(
-        id: 'ORD-101',
-        orderNumber: 'INV-20260816-001',
-        createdAt: DateTime.now().subtract(const Duration(hours: 1)),
-        customerName: 'Toko Berkah Plastik',
-        items: [],
-        totalAmount: 320000,
-        paidAmount: 350000,
-        changeAmount: 30000,
-        paymentMethod: PaymentMethod.tunai,
-        cashierName: 'Rudi (Sales)',
+      SavedTransactionModel(
+        cartId: 'b2055319-2b0b-4576-8f6d-371dbb67f436',
+        customer: SavedTransactionCustomerModel(id: null, name: 'Retail', type: 'Retail'),
+        user: SavedTransactionUserModel(id: 'e56a74fe', name: 'Mrs. Loma Zieme', type: 'Owner'),
+        disc: SavedTransactionDiscModel(status: false, isPercent: null, discount: '0'),
+        subtotal: 18000,
+        total: 18000,
+        date: '2026-08-20 22:23:43',
+        isOpen: false,
       ),
-      OrderModel(
-        id: 'ORD-102',
-        orderNumber: 'INV-20260816-002',
-        createdAt: DateTime.now().subtract(const Duration(hours: 3)),
-        customerName: 'Depot Es Boba & Juice',
-        items: [],
-        totalAmount: 185000,
-        paidAmount: 185000,
-        changeAmount: 0,
-        paymentMethod: PaymentMethod.qris,
-        cashierName: 'Rudi (Sales)',
+      SavedTransactionModel(
+        cartId: 'afbd4921-663e-4c0b-87a9-758211c2528e',
+        customer: SavedTransactionCustomerModel(id: null, name: 'Retail', type: 'Retail'),
+        user: SavedTransactionUserModel(id: 'e56a74fe', name: 'Mrs. Loma Zieme', type: 'Owner'),
+        disc: SavedTransactionDiscModel(status: false, isPercent: null, discount: '0'),
+        subtotal: 3000,
+        total: 3000,
+        date: '2026-08-20 22:19:51',
+        isOpen: false,
       ),
-      OrderModel(
-        id: 'ORD-103',
-        orderNumber: 'INV-20260815-003',
-        createdAt: DateTime.now().subtract(const Duration(days: 1)),
-        customerName: 'Pelanggan Umum',
-        items: [],
-        totalAmount: 75000,
-        paidAmount: 100000,
-        changeAmount: 25000,
-        paymentMethod: PaymentMethod.tunai,
-        cashierName: 'Bpk. Hendra (Owner)',
+      SavedTransactionModel(
+        cartId: 'd895f197-6ece-4d42-b96e-b27321ef8fe6',
+        customer: SavedTransactionCustomerModel(id: '967c6c87', name: 'Umi', type: 'Retail'),
+        user: SavedTransactionUserModel(id: 'e56a74fe', name: 'Mrs. Loma Zieme', type: 'Owner'),
+        disc: SavedTransactionDiscModel(status: false, isPercent: null, discount: '0'),
+        subtotal: 18000,
+        total: 18000,
+        date: '2026-08-20 09:54:28',
+        isOpen: false,
+      ),
+      SavedTransactionModel(
+        cartId: '9476cccd-a0cf-4932-ab58-360a720f3e11',
+        customer: SavedTransactionCustomerModel(id: 'c4cd8fe6', name: 'Yolanda', type: 'VIP'),
+        user: SavedTransactionUserModel(id: 'e56a74fe', name: 'Mrs. Loma Zieme', type: 'Owner'),
+        disc: SavedTransactionDiscModel(status: true, isPercent: false, discount: '5000'),
+        subtotal: 160000,
+        total: 155000,
+        date: '2026-08-18 15:39:14',
+        isOpen: false,
       ),
     ];
   }

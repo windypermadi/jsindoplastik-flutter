@@ -49,6 +49,24 @@ class ProductModel {
     this.rawJson,
   });
 
+  static double _parseDouble(dynamic val, [double fallback = 0.0]) {
+    if (val == null) return fallback;
+    if (val is num) return val.toDouble();
+    if (val is String) {
+      return double.tryParse(val) ?? fallback;
+    }
+    return fallback;
+  }
+
+  static int _parseInt(dynamic val, [int fallback = 0]) {
+    if (val == null) return fallback;
+    if (val is num) return val.toInt();
+    if (val is String) {
+      return int.tryParse(val) ?? fallback;
+    }
+    return fallback;
+  }
+
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final rawId = json['id']?.toString() ?? '';
     final codeFallback = rawId.length > 8 ? rawId.substring(0, 8).toUpperCase() : (rawId.isNotEmpty ? rawId.toUpperCase() : 'SKU');
@@ -82,54 +100,64 @@ class ProductModel {
     final finalIdKategori = parsedJenisId ?? json['id_kategori']?.toString() ?? json['kategori_id']?.toString() ?? parsedParentId;
     final finalIdType = parsedTypeId ?? json['id_type']?.toString() ?? json['type_id']?.toString() ?? json['id_tipe']?.toString();
 
-    // Parse price object if present
-    double modalPrice = (json['harga_modal'] ?? json['buy_price'] ?? json['harga_beli'] ?? 0).toDouble();
-    double retailPrice = (json['harga_retail'] ?? json['sell_price'] ?? json['harga_jual'] ?? 0).toDouble();
-    double? resellerPrice = json['harga_reseller'] != null ? (json['harga_reseller']).toDouble() : null;
+    // Parse price object safely
+    double modalPrice = _parseDouble(json['harga_modal'] ?? json['buy_price'] ?? json['harga_beli']);
+    double retailPrice = _parseDouble(json['harga_retail'] ?? json['sell_price'] ?? json['harga_jual'] ?? (json['price'] is! Map ? json['price'] : null));
+    double? resellerPrice = json['harga_reseller'] != null ? _parseDouble(json['harga_reseller']) : null;
 
     double? g1, g2, g3;
     int? m1, m2, m3;
 
     if (json['price'] is Map) {
       final priceMap = json['price'] as Map;
-      if (priceMap['modal'] != null) modalPrice = (priceMap['modal']).toDouble();
-      if (priceMap['retail'] != null) retailPrice = (priceMap['retail']).toDouble();
-      if (priceMap['reseller'] != null) resellerPrice = (priceMap['reseller']).toDouble();
+      if (priceMap['modal'] != null) modalPrice = _parseDouble(priceMap['modal']);
+      if (priceMap['retail'] != null) retailPrice = _parseDouble(priceMap['retail']);
+      if (priceMap['reseller'] != null) resellerPrice = _parseDouble(priceMap['reseller']);
 
       if (priceMap['grosir'] is List) {
         final gList = priceMap['grosir'] as List;
         if (gList.isNotEmpty && gList[0] is Map) {
-          g1 = (gList[0]['harga'] ?? 0).toDouble();
-          m1 = (gList[0]['min_tr'] ?? 0).toInt();
+          g1 = _parseDouble(gList[0]['harga']);
+          m1 = _parseInt(gList[0]['min_tr']);
         }
         if (gList.length > 1 && gList[1] is Map) {
-          g2 = (gList[1]['harga'] ?? 0).toDouble();
-          m2 = (gList[1]['min_tr'] ?? 0).toInt();
+          g2 = _parseDouble(gList[1]['harga']);
+          m2 = _parseInt(gList[1]['min_tr']);
         }
         if (gList.length > 2 && gList[2] is Map) {
-          g3 = (gList[2]['harga'] ?? 0).toDouble();
-          m3 = (gList[2]['min_tr'] ?? 0).toInt();
+          g3 = _parseDouble(gList[2]['harga']);
+          m3 = _parseInt(gList[2]['min_tr']);
         }
       }
     }
 
-    if (g1 == null && json['grosir_1'] != null) g1 = (json['grosir_1']).toDouble();
-    if (g2 == null && json['grosir_2'] != null) g2 = (json['grosir_2']).toDouble();
-    if (g3 == null && json['grosir_3'] != null) g3 = (json['grosir_3']).toDouble();
+    if (g1 == null && json['grosir_1'] != null) g1 = _parseDouble(json['grosir_1']);
+    if (g2 == null && json['grosir_2'] != null) g2 = _parseDouble(json['grosir_2']);
+    if (g3 == null && json['grosir_3'] != null) g3 = _parseDouble(json['grosir_3']);
 
-    if (m1 == null && json['min_belanja_1'] != null) m1 = (json['min_belanja_1']).toInt();
-    if (m2 == null && json['min_belanja_2'] != null) m2 = (json['min_belanja_2']).toInt();
-    if (m3 == null && json['min_belanja_3'] != null) m3 = (json['min_belanja_3']).toInt();
+    if (m1 == null && json['min_belanja_1'] != null) m1 = _parseInt(json['min_belanja_1']);
+    if (m2 == null && json['min_belanja_2'] != null) m2 = _parseInt(json['min_belanja_2']);
+    if (m3 == null && json['min_belanja_3'] != null) m3 = _parseInt(json['min_belanja_3']);
 
-    // Parse stock object if present
-    int stockTotal = (json['total'] ?? json['stok_awal'] ?? json['stock'] ?? json['stok'] ?? 0).toInt();
-    int? minStock = json['batas_stok'] != null ? (json['batas_stok']).toInt() : null;
+    // Parse stock safely
+    int stockTotal = 0;
+    if (json['total'] != null && json['total'] is! Map) {
+      stockTotal = _parseInt(json['total']);
+    } else if (json['stok_awal'] != null && json['stok_awal'] is! Map) {
+      stockTotal = _parseInt(json['stok_awal']);
+    } else if (json['stok'] != null && json['stok'] is! Map) {
+      stockTotal = _parseInt(json['stok']);
+    } else if (json['stock'] != null && json['stock'] is! Map) {
+      stockTotal = _parseInt(json['stock']);
+    }
+
+    int? minStock = json['batas_stok'] != null ? _parseInt(json['batas_stok']) : null;
     String stockUnit = json['satuan']?.toString() ?? json['unit']?.toString() ?? 'Pcs';
 
     if (json['stock'] is Map) {
       final stockMap = json['stock'] as Map;
-      if (stockMap['total'] != null) stockTotal = (stockMap['total']).toInt();
-      if (stockMap['minimum'] != null) minStock = (stockMap['minimum']).toInt();
+      if (stockMap['total'] != null) stockTotal = _parseInt(stockMap['total']);
+      if (stockMap['minimum'] != null) minStock = _parseInt(stockMap['minimum']);
       if (stockMap['unit'] != null) stockUnit = stockMap['unit'].toString();
     }
 
@@ -148,7 +176,7 @@ class ProductModel {
       stock: stockTotal,
       batasStok: minStock,
       unit: stockUnit,
-      imageUrl: json['image'] ?? json['gambar'] ?? json['image_url'],
+      imageUrl: json['image']?.toString() ?? json['gambar']?.toString() ?? json['image_url']?.toString(),
       isActive: json['is_active'] == 1 || json['is_active'] == true || json['is_active'] == '1' || json['is_active'] == 'true',
       grosir1: g1,
       grosir2: g2,

@@ -1,48 +1,84 @@
-class ReportSummaryModel {
-  final double totalSalesToday;
-  final int totalOrdersToday;
-  final double totalKasbonActive;
-  final int totalProductsLowStock;
-  final List<TopProductModel> topSellingProducts;
+class ReportChartItemModel {
+  final String date;
+  final num total;
 
-  ReportSummaryModel({
-    required this.totalSalesToday,
-    required this.totalOrdersToday,
-    required this.totalKasbonActive,
-    required this.totalProductsLowStock,
-    required this.topSellingProducts,
+  ReportChartItemModel({
+    required this.date,
+    required this.total,
   });
 
-  factory ReportSummaryModel.fromJson(Map<String, dynamic> json) {
-    return ReportSummaryModel(
-      totalSalesToday: (json['total_sales_today'] ?? 0).toDouble(),
-      totalOrdersToday: (json['total_orders_today'] ?? 0).toInt(),
-      totalKasbonActive: (json['total_kasbon_active'] ?? 0).toDouble(),
-      totalProductsLowStock: (json['total_products_low_stock'] ?? 0).toInt(),
-      topSellingProducts: (json['top_selling'] as List<dynamic>?)
-              ?.map((e) => TopProductModel.fromJson(e))
-              .toList() ??
-          [],
+  factory ReportChartItemModel.fromJson(Map<String, dynamic> json) {
+    return ReportChartItemModel(
+      date: json['date']?.toString() ?? '',
+      total: num.tryParse(json['total']?.toString() ?? '0') ?? 0,
     );
   }
 }
 
-class TopProductModel {
-  final String productName;
-  final int totalSold;
-  final double revenue;
+class ReportBestSellerModel {
+  final String name;
+  final String? longName;
+  final String parentCategory;
+  final String childCategory;
+  final String unit;
+  final int total;
 
-  TopProductModel({
-    required this.productName,
-    required this.totalSold,
-    required this.revenue,
+  ReportBestSellerModel({
+    required this.name,
+    this.longName,
+    required this.parentCategory,
+    required this.childCategory,
+    required this.unit,
+    required this.total,
   });
 
-  factory TopProductModel.fromJson(Map<String, dynamic> json) {
-    return TopProductModel(
-      productName: json['product_name'] ?? json['nama_produk'] ?? '',
-      totalSold: (json['total_sold'] ?? json['terjual'] ?? 0).toInt(),
-      revenue: (json['revenue'] ?? json['omset'] ?? 0).toDouble(),
+  factory ReportBestSellerModel.fromJson(Map<String, dynamic> json) {
+    String pCat = '';
+    String cCat = '';
+    if (json['category'] is Map) {
+      final catMap = json['category'] as Map;
+      pCat = catMap['parent']?.toString() ?? '';
+      cCat = catMap['child']?.toString() ?? '';
+    }
+
+    return ReportBestSellerModel(
+      name: json['name']?.toString() ?? '',
+      longName: json['long_name']?.toString(),
+      parentCategory: pCat,
+      childCategory: cCat,
+      unit: json['unit']?.toString() ?? 'Pack',
+      total: int.tryParse(json['total']?.toString() ?? '0') ?? 0,
+    );
+  }
+}
+
+class ReportResponseModel {
+  final List<ReportChartItemModel> reportList;
+  final List<ReportBestSellerModel> bestSellerList;
+
+  ReportResponseModel({
+    required this.reportList,
+    required this.bestSellerList,
+  });
+
+  factory ReportResponseModel.fromJson(Map<String, dynamic> json) {
+    List<ReportChartItemModel> reports = [];
+    if (json['report'] is List) {
+      reports = (json['report'] as List)
+          .map((e) => ReportChartItemModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .toList();
+    }
+
+    List<ReportBestSellerModel> bestSellers = [];
+    if (json['best_seller'] is List) {
+      bestSellers = (json['best_seller'] as List)
+          .map((e) => ReportBestSellerModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {})))
+          .toList();
+    }
+
+    return ReportResponseModel(
+      reportList: reports,
+      bestSellerList: bestSellers,
     );
   }
 }

@@ -196,8 +196,20 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _isLoading = true;
+    notifyListeners();
+
+    if (!_isMockMode) {
+      try {
+        await ApiService.post(ApiEndpoints.logout, {});
+      } catch (e) {
+        debugPrint('Logout API error: $e');
+      }
+    }
+
     _currentUser = null;
     await StorageService.clearSession();
+    _isLoading = false;
     notifyListeners();
   }
 }

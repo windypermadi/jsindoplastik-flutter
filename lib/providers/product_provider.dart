@@ -19,12 +19,17 @@ class ProductProvider with ChangeNotifier {
   bool _isLoading = false;
   bool _isLoadingMoreParents = false;
 
+  // Pagination for products ({{url}}product/get-all)
+  int _currentPage = 1;
+  int _lastPage = 1;
+  int _totalProducts = 0;
+
   // Pagination for category parents
   int _parentsPage = 1;
   final int _parentsPageSize = 50;
   bool _hasMoreParents = true;
 
-  List<ProductModel> get products => _filteredProducts();
+  List<ProductModel> get products => _products;
   List<ProductModel> get allProducts => _products;
   List<CategoryParentModel> get categoryParents => List.unmodifiable(_categoryParents);
   List<CategoryJenisModel> get categoryJenis => List.unmodifiable(_categoryJenis);
@@ -39,6 +44,12 @@ class ProductProvider with ChangeNotifier {
   bool get isLoadingMoreParents => _isLoadingMoreParents;
   bool get hasMoreParents => _hasMoreParents;
 
+  int get currentPage => _currentPage;
+  int get lastPage => _lastPage;
+  int get totalProducts => _totalProducts;
+  bool get hasNextPage => _currentPage < _lastPage;
+  bool get hasPrevPage => _currentPage > 1;
+
   ProductProvider() {
     initCatalogData();
   }
@@ -49,20 +60,13 @@ class ProductProvider with ChangeNotifier {
       await fetchJenisCategories(_categoryParents.first.id);
     }
     await fetchTypes();
-    await fetchProductsFiltered();
-  }
-
-  List<ProductModel> _filteredProducts() {
-    if (_searchQuery.isEmpty) return _products;
-    return _products.where((p) {
-      return p.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          p.code.toLowerCase().contains(_searchQuery.toLowerCase());
-    }).toList();
+    await fetchProductsFiltered(page: 1);
   }
 
   void setSearchQuery(String query) {
     _searchQuery = query;
     notifyListeners();
+    fetchProductsFiltered(page: 1);
   }
 
   List _extractRawList(dynamic rawData) {
@@ -221,30 +225,65 @@ class ProductProvider with ChangeNotifier {
     await fetchProductsFiltered();
   }
 
-  // 4. Fetch Products Filtered ({{url}}product/get-all-product?page=1&pageSize=20&search=&kategori=1&jenis=2&tipe=3)
-  Future<void> fetchProductsFiltered({int page = 1, int pageSize = 20}) async {
+  Future<void> loadLocalProducts() async {
     _isLoading = true;
     notifyListeners();
 
-    final endpoint = ApiEndpoints.getAllProductsFiltered(
-      page: page,
+    final localProducts = await StorageService.getLocalProducts();
+    if (localProducts.isNotEmpty) {
+      _products = localProducts;
+    }
+    _isLoading = false;
+    notifyListeners();
+  }
+
+  // 4. Fetch Products ({{url}}product/get-all?page=1&pageSize=20&search=)
+  Future<void> fetchProductsFiltered({int page = 1, int pageSize = 20}) async {
+    _currentPage = page;
+    _isLoading = true;
+    notifyListeners();
+
+    final endpoint = ApiEndpoints.getProductsSyncUrl(
+      page: _currentPage,
       pageSize: pageSize,
       search: _searchQuery.isNotEmpty ? _searchQuery : null,
-      kategori: _selectedParent?.id,
-      jenis: _selectedJenis?.id,
-      tipe: _selectedType?.id,
     );
 
     final response = await ApiService.get(endpoint);
     if (response.isSuccess && response.data != null) {
-      final List list = _extractRawList(response.data);
-      _products = list.map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {}))).toList();
+      final dynamic resData = response.data;
+      final List list = _extractRawList(resData);
+
+      if (resData is Map) {
+        final contentMap = (resData['content'] is Map) ? resData['content'] : resData;
+        _currentPage = int.tryParse(contentMap['current_page']?.toString() ?? '$_currentPage') ?? _currentPage;
+        _lastPage = int.tryParse(contentMap['last_page']?.toString() ?? '1') ?? 1;
+        _totalProducts = int.tryParse(contentMap['total']?.toString() ?? '${list.length}') ?? list.length;
+      }
+
+      if (list.isNotEmpty) {
+        _products = list.map((e) => ProductModel.fromJson(Map<String, dynamic>.from(e is Map ? e : {}))).toList();
+      } else {
+        await loadLocalProducts();
+      }
     } else {
-      _products = [];
+      await loadLocalProducts();
     }
 
     _isLoading = false;
     notifyListeners();
+  }
+
+  Future<void> nextPage() async {
+    if (hasNextPage) {
+      await fetchProductsFiltered(page: _currentPage + 1);
+    }
+  }
+
+  Future<void> prevPage() async {
+    if (hasPrevPage) {
+      await fetchProductsFiltered(page: _currentPage - 1);
+    }
   }
 
   Future<ApiResponse<dynamic>> addCategoryParent(String name) async {

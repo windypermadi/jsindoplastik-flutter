@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../models/user_model.dart';
+import '../../models/product_model.dart';
 import '../constants/api_endpoints.dart';
 
 class StorageService {
@@ -73,6 +75,59 @@ class StorageService {
     return ApiEndpoints.baseUrl;
   }
 
+  static const String keyLocalProducts = 'local_products_db';
+  static const String keyLastProductSync = 'last_product_sync_time';
+
+  static Future<void> saveLocalProducts(List<Map<String, dynamic>> productsJson) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final jsonStr = jsonEncode(productsJson);
+      await prefs.setString(keyLocalProducts, jsonStr);
+    } catch (_) {
+      // Ignore disk storage exception if any
+    }
+  }
+
+  static Future<List<ProductModel>> getLocalProducts() async {
+    final prefs = await SharedPreferences.getInstance();
+    final jsonStr = prefs.getString(keyLocalProducts);
+    if (jsonStr == null || jsonStr.isEmpty) return [];
+
+    try {
+      final List decoded = jsonDecode(jsonStr);
+      final List<ProductModel> result = [];
+      for (final e in decoded) {
+        if (e is Map) {
+          try {
+            result.add(ProductModel.fromJson(Map<String, dynamic>.from(e)));
+          } catch (_) {
+            // Ignore single malformed product item
+          }
+        }
+      }
+      return result;
+    } catch (_) {
+      return [];
+    }
+  }
+
+  static Future<int> getLocalProductsCount() async {
+    final products = await getLocalProducts();
+    return products.length;
+  }
+
+  static Future<void> saveLastProductSyncTime(DateTime dateTime) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(keyLastProductSync, dateTime.toIso8601String());
+  }
+
+  static Future<DateTime?> getLastProductSyncTime() async {
+    final prefs = await SharedPreferences.getInstance();
+    final str = prefs.getString(keyLastProductSync);
+    if (str == null || str.isEmpty) return null;
+    return DateTime.tryParse(str);
+  }
+
   static Future<void> setMockMode(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setBool(keyMockMode, enabled);
@@ -80,6 +135,6 @@ class StorageService {
 
   static Future<bool> isMockMode() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(keyMockMode) ?? false; // default to false to use real API
+    return prefs.getBool(keyMockMode) ?? false;
   }
 }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/cart_provider.dart';
 import '../auth/login_view.dart';
 
 enum NavMenu {
@@ -9,6 +10,7 @@ enum NavMenu {
   produk,
   kelolaProduk,
   pesanan,
+  riwayatTransaksi,
   pelanggan,
   user,
   kasbon,
@@ -30,6 +32,8 @@ extension NavMenuExtension on NavMenu {
         return 'Kelola Produk';
       case NavMenu.pesanan:
         return 'Pesanan';
+      case NavMenu.riwayatTransaksi:
+        return 'Riwayat Transaksi';
       case NavMenu.pelanggan:
         return 'Pelanggan';
       case NavMenu.user:
@@ -59,6 +63,8 @@ extension NavMenuExtension on NavMenu {
         return Icons.published_with_changes;
       case NavMenu.pesanan:
         return Icons.add_shopping_cart_rounded;
+      case NavMenu.riwayatTransaksi:
+        return Icons.history_rounded;
       case NavMenu.pelanggan:
         return Icons.groups_rounded;
       case NavMenu.user:
@@ -96,6 +102,7 @@ class AppDrawer extends StatelessWidget {
         NavMenu.produk,
         NavMenu.kelolaProduk,
         NavMenu.pesanan,
+        NavMenu.riwayatTransaksi,
         NavMenu.pelanggan,
         NavMenu.user,
         NavMenu.kasbon,
@@ -109,6 +116,7 @@ class AppDrawer extends StatelessWidget {
       return [
         NavMenu.dashboard,
         NavMenu.produk,
+        NavMenu.riwayatTransaksi,
         NavMenu.pelanggan,
         NavMenu.kasbon,
         NavMenu.transaksi,
@@ -233,23 +241,48 @@ class AppDrawer extends StatelessWidget {
                               bottomLeft: Radius.circular(24),
                             ),
                           ),
-                          child: Row(
-                            children: [
-                              Icon(
-                                menu.icon,
-                                size: 22,
-                                color: isSelected ? oceanBlue : Colors.white,
-                              ),
-                              const SizedBox(width: 14),
-                              Text(
-                                menu.title,
-                                style: TextStyle(
-                                  fontSize: 15,
-                                  fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
-                                  color: isSelected ? oceanBlue : Colors.white,
-                                ),
-                              ),
-                            ],
+                          child: Consumer<CartProvider>(
+                            builder: (context, cart, _) {
+                              final count = cart.totalQuantity;
+                              final isCartMenu = menu == NavMenu.transaksi || menu == NavMenu.pesanan;
+
+                              return Row(
+                                children: [
+                                  Icon(
+                                    menu.icon,
+                                    size: 22,
+                                    color: isSelected ? oceanBlue : Colors.white,
+                                  ),
+                                  const SizedBox(width: 14),
+                                  Expanded(
+                                    child: Text(
+                                      menu.title,
+                                      style: TextStyle(
+                                        fontSize: 15,
+                                        fontWeight: isSelected ? FontWeight.bold : FontWeight.w500,
+                                        color: isSelected ? oceanBlue : Colors.white,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isCartMenu && count > 0)
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.redAccent,
+                                        borderRadius: BorderRadius.circular(10),
+                                      ),
+                                      child: Text(
+                                        '$count',
+                                        style: const TextStyle(
+                                          color: Colors.white,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                ],
+                              );
+                            },
                           ),
                         ),
                       ),

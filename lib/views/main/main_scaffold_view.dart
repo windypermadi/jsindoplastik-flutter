@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../providers/auth_provider.dart';
+import '../../providers/cart_provider.dart';
 import 'app_drawer.dart';
 
 import '../dashboard/dashboard_view.dart';
@@ -14,6 +15,7 @@ import '../kasbon/kasbon_view.dart';
 import '../transaksi/transaksi_pos_view.dart';
 import '../stok_mutasi/stok_mutasi_view.dart';
 import '../laporan/laporan_view.dart';
+import '../riwayat_transaksi/riwayat_transaksi_view.dart';
 import '../sinkronisasi/sinkronisasi_view.dart';
 import '../profil/profil_view.dart';
 
@@ -41,6 +43,8 @@ class _MainScaffoldViewState extends State<MainScaffoldView> {
         return const KelolaProdukView();
       case NavMenu.pesanan:
         return const PesananView();
+      case NavMenu.riwayatTransaksi:
+        return const RiwayatTransaksiView();
       case NavMenu.pelanggan:
         return const PelangganView();
       case NavMenu.user:
@@ -101,13 +105,49 @@ class _MainScaffoldViewState extends State<MainScaffoldView> {
               });
             },
           ),
-          IconButton(
-            icon: const Icon(Icons.point_of_sale_outlined),
-            tooltip: 'Transaksi POS',
-            onPressed: () {
-              setState(() {
-                _selectedMenu = NavMenu.transaksi;
-              });
+          Consumer<CartProvider>(
+            builder: (context, cart, _) {
+              final count = cart.totalQuantity;
+              return Stack(
+                alignment: Alignment.center,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.point_of_sale_outlined),
+                    tooltip: 'Transaksi POS & Keranjang',
+                    onPressed: () {
+                      setState(() {
+                        _selectedMenu = NavMenu.transaksi;
+                      });
+                    },
+                  ),
+                  if (count > 0)
+                    Positioned(
+                      right: 6,
+                      top: 6,
+                      child: Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.redAccent,
+                          shape: BoxShape.circle,
+                          border: Border.all(color: AppColors.primary, width: 1.5),
+                        ),
+                        constraints: const BoxConstraints(
+                          minWidth: 18,
+                          minHeight: 18,
+                        ),
+                        child: Text(
+                          count > 99 ? '99+' : '$count',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ),
+                    ),
+                ],
+              );
             },
           ),
         ],

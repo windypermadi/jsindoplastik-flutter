@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:intl/date_symbol_data_local.dart';
 import 'core/constants/app_colors.dart';
 import 'providers/auth_provider.dart';
 import 'providers/product_provider.dart';
@@ -10,12 +11,18 @@ import 'providers/kasbon_provider.dart';
 import 'providers/order_provider.dart';
 import 'providers/user_management_provider.dart';
 import 'providers/stock_mutation_provider.dart';
+import 'providers/dashboard_provider.dart';
 import 'providers/sync_provider.dart';
 import 'views/auth/login_view.dart';
 import 'views/main/main_scaffold_view.dart';
 
-void main() {
+import 'providers/report_provider.dart';
+
+import 'providers/riwayat_transaksi_provider.dart';
+
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await initializeDateFormatting('id_ID', null);
   runApp(const JSIndoplastikApp());
 }
 
@@ -27,6 +34,7 @@ class JSIndoplastikApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => DashboardProvider()),
         ChangeNotifierProvider(create: (_) => ProductProvider()),
         ChangeNotifierProvider(create: (_) => CartProvider()),
         ChangeNotifierProvider(create: (_) => CustomerProvider()),
@@ -34,6 +42,8 @@ class JSIndoplastikApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => OrderProvider()),
         ChangeNotifierProvider(create: (_) => UserManagementProvider()),
         ChangeNotifierProvider(create: (_) => StockMutationProvider()),
+        ChangeNotifierProvider(create: (_) => ReportProvider()),
+        ChangeNotifierProvider(create: (_) => RiwayatTransaksiProvider()),
         ChangeNotifierProvider(create: (_) => SyncProvider()),
       ],
       child: Consumer<AuthProvider>(

@@ -139,11 +139,18 @@ class ApiService {
     }
   }
 
-  static Future<ApiResponse<dynamic>> delete(String endpoint) async {
+  static Future<ApiResponse<dynamic>> delete(
+    String endpoint, [
+    Map<String, dynamic>? data,
+  ]) async {
     try {
       final headers = await _getHeaders();
       final response = await http
-          .delete(Uri.parse(endpoint), headers: headers)
+          .delete(
+            Uri.parse(endpoint),
+            headers: headers,
+            body: data != null ? jsonEncode(data) : null,
+          )
           .timeout(const Duration(seconds: 10));
 
       final body = jsonDecode(response.body);

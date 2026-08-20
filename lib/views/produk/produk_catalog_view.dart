@@ -2,8 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/utils/formatters.dart';
-import '../../models/category_model.dart';
+import '../../models/product_model.dart';
 import '../../providers/product_provider.dart';
+import '../../providers/cart_provider.dart';
 
 class ProdukCatalogView extends StatefulWidget {
   const ProdukCatalogView({super.key});
@@ -37,6 +38,268 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
         productProv.fetchParentCategories(refresh: false);
       }
     }
+  }
+
+  void _openProductAddQuantityModal(BuildContext context, ProductModel product) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        int quantity = 1;
+        bool isWholesaleExpanded = false;
+
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return Container(
+              height: MediaQuery.of(context).size.height * 0.90,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+              ),
+              child: Column(
+                children: [
+                  // 1. Header Bar: < Product Name
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                    child: Row(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.arrow_back_ios_new, size: 18, color: Colors.black),
+                          onPressed: () => Navigator.pop(ctx),
+                        ),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            product.name,
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Divider(height: 1, thickness: 1, color: Color(0xFFEEEEEE)),
+
+                  // Body Content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          // Section 1: Stok
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                const Text(
+                                  'Stok',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                Text(
+                                  '${product.stock} ${product.unit}',
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(height: 8, color: const Color(0xFFF8FAFC)),
+
+                          // Section 2: Deskripsi Produk
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Deskripsi Produk',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  (product.longName != null && product.longName!.isNotEmpty)
+                                      ? product.longName!
+                                      : (product.unit.isNotEmpty ? '1 ${product.unit} isi item standar' : '-'),
+                                  style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(height: 8, color: const Color(0xFFF8FAFC)),
+
+                          // Section 3: Jumlah Barang
+                          Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Jumlah Barang',
+                                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                ),
+                                const SizedBox(height: 12),
+                                Row(
+                                  children: [
+                                    InkWell(
+                                      onTap: () {
+                                        if (quantity > 1) {
+                                          setModalState(() {
+                                            quantity--;
+                                          });
+                                        }
+                                      },
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade200,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.remove, size: 20, color: Colors.grey),
+                                      ),
+                                    ),
+                                    Container(
+                                      constraints: const BoxConstraints(minWidth: 48),
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                      alignment: Alignment.center,
+                                      child: Text(
+                                        '$quantity',
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                      ),
+                                    ),
+                                    InkWell(
+                                      onTap: () {
+                                        setModalState(() {
+                                          quantity++;
+                                        });
+                                      },
+                                      child: Container(
+                                        width: 36,
+                                        height: 36,
+                                        decoration: BoxDecoration(
+                                          color: Colors.grey.shade300,
+                                          borderRadius: BorderRadius.circular(8),
+                                        ),
+                                        child: const Icon(Icons.add, size: 20, color: Colors.grey),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          ),
+                          Container(height: 8, color: const Color(0xFFF8FAFC)),
+
+                          // Section 4: Informasi Harga Grosir
+                          Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                            child: Column(
+                              children: [
+                                InkWell(
+                                  onTap: () {
+                                    setModalState(() {
+                                      isWholesaleExpanded = !isWholesaleExpanded;
+                                    });
+                                  },
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      const Text(
+                                        'Informasi Harga Grosir',
+                                        style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: AppColors.textPrimary),
+                                      ),
+                                      Icon(
+                                        isWholesaleExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                        color: AppColors.textPrimary,
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                if (isWholesaleExpanded) ...[
+                                  const SizedBox(height: 12),
+                                  _buildWholesaleTierRow('≥ 10', Formatters.rupiah(product.sellPrice * 0.95)),
+                                  const Divider(height: 12, thickness: 0.5),
+                                  _buildWholesaleTierRow('≥ 20', Formatters.rupiah(product.sellPrice * 0.90)),
+                                  const Divider(height: 12, thickness: 0.5),
+                                  _buildWholesaleTierRow('≥ 30', Formatters.rupiah(product.sellPrice * 0.85)),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                  // Sticky Bottom Button: Tambah
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 46,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: AppColors.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                        onPressed: () async {
+                          final cartProv = Provider.of<CartProvider>(context, listen: false);
+                          await cartProv.addToCartApi(
+                            itemId: product.id,
+                            qty: quantity,
+                            fallbackProduct: product,
+                          );
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Berhasil menambahkan $quantity ${product.unit} ${product.name} ke keranjang'),
+                                backgroundColor: AppColors.success,
+                              ),
+                            );
+                          }
+                        },
+                        child: const Text(
+                          'Tambah',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Widget _buildWholesaleTierRow(String minQty, String priceStr) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          minQty,
+          style: const TextStyle(fontSize: 13, color: AppColors.textSecondary),
+        ),
+        Text(
+          priceStr,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+        ),
+      ],
+    );
   }
 
   @override
@@ -275,6 +538,7 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: ListTile(
+                                onTap: () => _openProductAddQuantityModal(context, p),
                                 leading: Container(
                                   width: 44,
                                   height: 44,
@@ -329,8 +593,8 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
                                       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: isLowStock
-                                            ? AppColors.danger.withOpacity(0.15)
-                                            : AppColors.success.withOpacity(0.15),
+                                            ? AppColors.danger.withValues(alpha: 0.15)
+                                            : AppColors.success.withValues(alpha: 0.15),
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
@@ -351,6 +615,54 @@ class _ProdukCatalogViewState extends State<ProdukCatalogView> {
             ),
           ],
         ),
+      ),
+      floatingActionButton: Consumer<CartProvider>(
+        builder: (context, cart, _) {
+          final count = cart.totalQuantity;
+          return Stack(
+            clipBehavior: Clip.none,
+            children: [
+              FloatingActionButton(
+                backgroundColor: AppColors.primary,
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Keranjang berisi $count item. Buka menu Transaksi POS untuk checkout.'),
+                      backgroundColor: AppColors.primaryDark,
+                    ),
+                  );
+                },
+                child: const Icon(Icons.shopping_cart, color: Colors.white),
+              ),
+              if (count > 0)
+                Positioned(
+                  right: -2,
+                  top: -2,
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.redAccent,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 22,
+                      minHeight: 22,
+                    ),
+                    child: Text(
+                      count > 99 ? '99+' : '$count',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+            ],
+          );
+        },
       ),
     );
   }

@@ -17,6 +17,13 @@ subprojects {
 }
 subprojects {
     project.evaluationDependsOn(":app")
+
+    plugins.withId("com.android.library") {
+        val android = extensions.findByType(com.android.build.gradle.LibraryExtension::class.java)
+        if (android != null && android.namespace == null) {
+            android.namespace = "id.jsindoplastik." + project.name.replace("-", "_")
+        }
+    }
 }
 
 tasks.register<Delete>("clean") {
